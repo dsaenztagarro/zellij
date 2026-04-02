@@ -454,8 +454,16 @@ impl State {
                 self.new_session_info.handle_key(key);
                 should_render = true;
             },
+            BareKey::Char('j') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
+                self.new_session_info.handle_key(KeyWithModifier::new(BareKey::Down));
+                should_render = true;
+            },
             BareKey::Up if key.has_no_modifiers() => {
                 self.new_session_info.handle_key(key);
+                should_render = true;
+            },
+            BareKey::Char('k') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
+                self.new_session_info.handle_key(KeyWithModifier::new(BareKey::Up));
                 should_render = true;
             },
             BareKey::Enter if key.has_no_modifiers() => {
@@ -555,7 +563,15 @@ impl State {
                     self.sessions.move_selection_down();
                     should_render = true;
                 },
+                BareKey::Char('j') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
+                    self.sessions.move_selection_down();
+                    should_render = true;
+                },
                 BareKey::Up if key.has_no_modifiers() => {
+                    self.sessions.move_selection_up();
+                    should_render = true;
+                },
+                BareKey::Char('k') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
                     self.sessions.move_selection_up();
                     should_render = true;
                 },
@@ -665,7 +681,15 @@ impl State {
                 self.resurrectable_sessions.move_selection_down();
                 should_render = true;
             },
+            BareKey::Char('j') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
+                self.resurrectable_sessions.move_selection_down();
+                should_render = true;
+            },
             BareKey::Up if key.has_no_modifiers() => {
+                self.resurrectable_sessions.move_selection_up();
+                should_render = true;
+            },
+            BareKey::Char('k') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
                 self.resurrectable_sessions.move_selection_up();
                 should_render = true;
             },
@@ -805,7 +829,15 @@ impl State {
                 self.single_screen_state.move_selection_down();
                 should_render = true;
             },
+            BareKey::Char('j') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
+                self.single_screen_state.move_selection_down();
+                should_render = true;
+            },
             BareKey::Up if key.has_no_modifiers() => {
+                self.single_screen_state.move_selection_up();
+                should_render = true;
+            },
+            BareKey::Char('k') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
                 self.single_screen_state.move_selection_up();
                 should_render = true;
             },
@@ -884,7 +916,15 @@ impl State {
                 self.single_screen_state.layout_list.move_selection_down();
                 should_render = true;
             },
+            BareKey::Char('j') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
+                self.single_screen_state.layout_list.move_selection_down();
+                should_render = true;
+            },
             BareKey::Up if key.has_no_modifiers() => {
+                self.single_screen_state.layout_list.move_selection_up();
+                should_render = true;
+            },
+            BareKey::Char('k') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
                 self.single_screen_state.layout_list.move_selection_up();
                 should_render = true;
             },
