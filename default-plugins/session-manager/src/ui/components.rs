@@ -1049,6 +1049,15 @@ fn count_by_kind(rows: &[CachedRowData]) -> (usize, usize) {
     (active, resurrectable)
 }
 
+pub fn render_custom_header(x: usize, y: usize, max_cols: usize) {
+    let version = env!("CARGO_PKG_VERSION");
+    let header_text = format!("[Custom Session Manager v{}]", version);
+    let len = header_text.len();
+    let padding = max_cols.saturating_sub(len) / 2;
+    let text = Text::new(header_text).color_range(3, 1..len - 1);
+    print_text_with_coordinates(text, x + padding, y, Some(max_cols), None);
+}
+
 pub fn render_screen_toggle(
     active_screen: ActiveScreen,
     x: usize,

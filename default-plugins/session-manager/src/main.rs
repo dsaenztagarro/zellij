@@ -11,9 +11,9 @@ use new_session_info::NewSessionInfo;
 use single_screen::{SingleScreenMode, SingleScreenState, UnifiedSearchResult};
 use ui::{
     components::{
-        render_controls_line, render_error, render_new_session_block, render_prompt,
-        render_renaming_session_screen, render_screen_toggle, render_single_screen_prompt,
-        render_unified_results, render_unsaved_changes_line, Colors,
+        render_controls_line, render_custom_header, render_error, render_new_session_block,
+        render_prompt, render_renaming_session_screen, render_screen_toggle,
+        render_single_screen_prompt, render_unified_results, render_unsaved_changes_line, Colors,
     },
     welcome_screen::{render_banner, render_welcome_boundaries},
     SessionUiInfo,
@@ -166,6 +166,10 @@ impl ZellijPlugin for State {
         let (x, y, width, height) = self.main_menu_size(rows, cols);
 
         let background = self.colors.palette.text_unselected.background;
+
+        render_custom_header(x, y, width);
+        let y = y + 1;
+        let height = height.saturating_sub(1);
 
         if self.is_welcome_screen {
             render_banner(x, 0, rows.saturating_sub(height), width);
