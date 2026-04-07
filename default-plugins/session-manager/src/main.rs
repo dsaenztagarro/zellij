@@ -62,6 +62,11 @@ register_plugin!(State);
 
 impl ZellijPlugin for State {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
+        request_permission(&[
+            PermissionType::ReadApplicationState,
+            PermissionType::ChangeApplicationState,
+            PermissionType::RunCommands,
+        ]);
         self.is_welcome_screen = configuration
             .get("welcome_screen")
             .map(|v| v == "true")
