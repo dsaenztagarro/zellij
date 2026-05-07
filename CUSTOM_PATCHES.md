@@ -1,6 +1,6 @@
 # Custom Patches — Session Manager Plugin
 
-Base: zellij v0.44.0
+Base: zellij v0.44.2
 
 ## Patches
 
@@ -14,7 +14,7 @@ Base: zellij v0.44.0
 - **Why:** Visual indicator that a custom plugin build is loaded
 - **Upstream PR:** None
 
-### 3. Fix: do not reset layout selection (#4919)
+### 3. Request permissions for file-based plugin loading
 - **Files:** `default-plugins/session-manager/src/main.rs`
-- **Why:** Cherry-picked from upstream main — fix landed after v0.44.0 release
-- **Upstream PR:** #4919 — will be in next release, drop this patch when rebasing onto it
+- **Why:** Allow loading the plugin from a filesystem path (rather than the bundled URI) without permission prompts each launch
+- **Upstream PR:** None

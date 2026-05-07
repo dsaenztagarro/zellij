@@ -3135,7 +3135,7 @@ dependencies = [
 
 [[package]]
 name = "session-manager"
-version = "0.2.0-custom"
+version = "0.44.2-custom.1"
 dependencies = [
  "ansi_term",
  "chrono",

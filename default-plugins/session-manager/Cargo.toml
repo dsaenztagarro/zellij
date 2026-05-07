@@ -1,6 +1,6 @@
 [package]
 name = "session-manager"
-version = "0.44.0-custom.1"
+version = "0.44.2-custom.1"
 authors = ["Aram Drevekenin <aram@poor.dev>"]
 edition.workspace = true
 
