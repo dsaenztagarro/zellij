@@ -29,7 +29,6 @@ pub enum UnifiedSearchResult {
         tab_count: usize,
         pane_count: usize,
         is_current_session: bool,
-        creation_time: Duration,
     },
     ResurrectableSession {
         score: i64,
@@ -52,32 +51,18 @@ impl UnifiedSearchResult {
             UnifiedSearchResult::ResurrectableSession { score, .. } => *score,
         }
     }
-    /// Ordering by type (active before resurrectable), then by creation time ascending
-    /// (smaller elapsed duration = more recently created = appears first).
-    fn cmp_by_type_then_recency(&self, other: &Self) -> std::cmp::Ordering {
+    /// Ordering by type (active before resurrectable), then alphabetically by
+    /// name (case-insensitive, with the raw name as a stable tiebreaker).
+    fn cmp_by_type_then_name(&self, other: &Self) -> std::cmp::Ordering {
+        use UnifiedSearchResult::*;
         match (self, other) {
-            (
-                UnifiedSearchResult::ActiveSession {
-                    creation_time: ct_a,
-                    ..
-                },
-                UnifiedSearchResult::ActiveSession {
-                    creation_time: ct_b,
-                    ..
-                },
-            ) => ct_a.cmp(ct_b),
-            (
-                UnifiedSearchResult::ResurrectableSession { ctime: ct_a, .. },
-                UnifiedSearchResult::ResurrectableSession { ctime: ct_b, .. },
-            ) => ct_a.cmp(ct_b),
-            (
-                UnifiedSearchResult::ActiveSession { .. },
-                UnifiedSearchResult::ResurrectableSession { .. },
-            ) => std::cmp::Ordering::Less,
-            (
-                UnifiedSearchResult::ResurrectableSession { .. },
-                UnifiedSearchResult::ActiveSession { .. },
-            ) => std::cmp::Ordering::Greater,
+            (ActiveSession { .. }, ResurrectableSession { .. }) => std::cmp::Ordering::Less,
+            (ResurrectableSession { .. }, ActiveSession { .. }) => std::cmp::Ordering::Greater,
+            _ => {
+                let a = self.session_name();
+                let b = other.session_name();
+                a.to_lowercase().cmp(&b.to_lowercase()).then_with(|| a.cmp(b))
+            },
         }
     }
 }
@@ -119,7 +104,7 @@ impl SingleScreenState {
             self.unified_results =
                 Self::collect_all_sessions(active_sessions, resurrectable_sessions);
             self.unified_results
-                .sort_by(|a, b| a.cmp_by_type_then_recency(b));
+                .sort_by(|a, b| a.cmp_by_type_then_name(b));
         } else {
             self.unified_results =
                 self.collect_fuzzy_matched_sessions(active_sessions, resurrectable_sessions);
@@ -128,7 +113,7 @@ impl SingleScreenState {
                 if score_cmp != std::cmp::Ordering::Equal {
                     return score_cmp;
                 }
-                a.cmp_by_type_then_recency(b)
+                a.cmp_by_type_then_name(b)
             });
         }
 
@@ -212,7 +197,6 @@ impl SingleScreenState {
             tab_count: session.tabs.len(),
             pane_count: session.tabs.iter().fold(0, |acc, t| acc + t.panes.len()),
             is_current_session: session.is_current_session,
-            creation_time: session.creation_time,
         }
     }
 
@@ -325,7 +309,7 @@ mod tests {
         panes_per_tab: usize,
         connected: usize,
         is_current: bool,
-        creation_secs: u64,
+        _creation_secs: u64,
     ) -> SessionUiInfo {
         SessionUiInfo {
             name: name.to_string(),
@@ -345,7 +329,6 @@ mod tests {
                 .collect(),
             connected_users: connected,
             is_current_session: is_current,
-            creation_time: Duration::from_secs(creation_secs),
         }
     }
 
@@ -358,7 +341,7 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    fn test_1_1_active_sessions_sorted_by_recency() {
+    fn test_1_1_active_sessions_sorted_by_name() {
         let mut state = SingleScreenState::default();
         state.search_term = String::new();
         let active = vec![
@@ -368,7 +351,7 @@ mod tests {
         ];
         state.update_search_term(&active, &[]);
         assert_eq!(state.unified_results.len(), 3);
-        // Ascending creation_time: 100, 200, 300 (most recent first)
+        // Alphabetical by name: sess-100, sess-200, sess-300
         assert_eq!(state.unified_results[0].session_name(), "sess-100");
         assert_eq!(state.unified_results[1].session_name(), "sess-200");
         assert_eq!(state.unified_results[2].session_name(), "sess-300");
@@ -378,7 +361,7 @@ mod tests {
     }
 
     #[test]
-    fn test_1_2_resurrectable_sessions_sorted_by_recency() {
+    fn test_1_2_resurrectable_sessions_sorted_by_name() {
         let mut state = SingleScreenState::default();
         state.search_term = String::new();
         let resurrectable = vec![
@@ -388,6 +371,7 @@ mod tests {
         ];
         state.update_search_term(&[], &resurrectable);
         assert_eq!(state.unified_results.len(), 3);
+        // Alphabetical by name: res-100, res-200, res-300
         assert_eq!(state.unified_results[0].session_name(), "res-100");
         assert_eq!(state.unified_results[1].session_name(), "res-200");
         assert_eq!(state.unified_results[2].session_name(), "res-300");
@@ -413,10 +397,12 @@ mod tests {
         ];
         state.update_search_term(&active, &resurrectable);
         assert_eq!(state.unified_results.len(), 4);
+        // Active sessions first, each block sorted alphabetically by name.
         assert_eq!(state.unified_results[0].session_name(), "active-100");
         assert_eq!(state.unified_results[1].session_name(), "active-200");
-        assert_eq!(state.unified_results[2].session_name(), "res-50");
-        assert_eq!(state.unified_results[3].session_name(), "res-150");
+        // "res-150" < "res-50" alphabetically ('1' < '5').
+        assert_eq!(state.unified_results[2].session_name(), "res-150");
+        assert_eq!(state.unified_results[3].session_name(), "res-50");
     }
 
     #[test]
@@ -465,6 +451,30 @@ mod tests {
         state.search_term = String::new();
         state.update_search_term(&[], &[]);
         assert!(state.unified_results.is_empty());
+    }
+
+    #[test]
+    fn test_1_7_case_insensitive_name_order_grouped_by_type() {
+        let mut state = SingleScreenState::default();
+        state.search_term = String::new();
+        // Mixed-case active names plus a resurrectable one; creation times are
+        // deliberately out of name order to prove recency no longer matters.
+        let active = vec![
+            make_active_session("Engineer-2", 1, 1, 1, false, 10),
+            make_active_session("engineer-1", 1, 1, 1, false, 99),
+        ];
+        let resurrectable = vec![make_resurrectable("engineer-3", 5)];
+        state.update_search_term(&active, &resurrectable);
+        assert_eq!(state.unified_results.len(), 3);
+        // Active block first, sorted case-insensitively by name...
+        assert_eq!(state.unified_results[0].session_name(), "engineer-1");
+        assert_eq!(state.unified_results[1].session_name(), "Engineer-2");
+        // ...then the resurrectable block.
+        assert_eq!(state.unified_results[2].session_name(), "engineer-3");
+        assert!(matches!(
+            state.unified_results[2],
+            UnifiedSearchResult::ResurrectableSession { .. }
+        ));
     }
 
     // ---------------------------------------------------------------
@@ -575,7 +585,7 @@ mod tests {
     }
 
     #[test]
-    fn test_2_6_tie_breaking_more_recent_first_at_equal_score_and_type() {
+    fn test_2_6_tie_breaking_alphabetical_at_equal_score_and_type() {
         let mut state = SingleScreenState::default();
         let active = vec![
             make_active_session("test-a", 1, 1, 1, false, 100),
@@ -583,7 +593,8 @@ mod tests {
         ];
         state.search_term = "test".to_string();
         state.update_search_term(&active, &[]);
-        // At equal scores, ascending creation_time places test-b (50s) before test-a (100s)
+        // At equal scores, the tiebreaker is now alphabetical by name, so
+        // test-a appears before test-b regardless of creation time.
         let pos_a = state
             .unified_results
             .iter()
@@ -593,7 +604,6 @@ mod tests {
             .iter()
             .position(|r| r.session_name() == "test-b");
         if let (Some(a), Some(b)) = (pos_a, pos_b) {
-            // If scores are equal, test-b should come first (more recent)
             let score_a = match &state.unified_results[a] {
                 UnifiedSearchResult::ActiveSession { score, .. } => *score,
                 _ => 0,
@@ -604,8 +614,8 @@ mod tests {
             };
             if score_a == score_b {
                 assert!(
-                    b < a,
-                    "test-b (50s, more recent) should appear before test-a (100s)"
+                    a < b,
+                    "test-a should appear before test-b (alphabetical tiebreaker)"
                 );
             }
         }
@@ -673,7 +683,7 @@ mod tests {
             .iter()
             .enumerate()
             .map(
-                |(i, (name, is_current))| UnifiedSearchResult::ActiveSession {
+                |(_i, (name, is_current))| UnifiedSearchResult::ActiveSession {
                     score: 0,
                     indices: vec![],
                     session_name: name.to_string(),
@@ -681,7 +691,6 @@ mod tests {
                     tab_count: 1,
                     pane_count: 1,
                     is_current_session: *is_current,
-                    creation_time: Duration::from_secs(i as u64 * 100),
                 },
             )
             .collect();
